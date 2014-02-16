@@ -28,10 +28,11 @@ public class Main {
 	public static void main(String[] args) {
 		
 		Options options = new Options();
-		options.addOption(Option.builder("f").longOpt("file").hasArg().required().desc("IP Address list file").build());
+		options.addOption(Option.builder("f").longOpt("file").hasArg().desc("IP Address list file").build());
 		options.addOption(Option.builder("u").longOpt("username").hasArg().required().desc("Username").build());
 		options.addOption(Option.builder("p").longOpt("password").hasArg().desc("Password").build());
-		options.addOption(Option.builder("c").longOpt("command").hasArg().required().desc("Command").build());
+		options.addOption(Option.builder("c").longOpt("command").hasArg().desc("Command").build());
+		options.addOption(Option.builder("h").longOpt("host").hasArg().desc("Host").build());
 		options.addOption(Option.builder("help").desc("Print this help").build());
 		CommandLineParser parser = new DefaultParser();
 		
@@ -52,28 +53,32 @@ public class Main {
 		String username = cmd.getOptionValue("u");
 		String password = cmd.getOptionValue("p");
 		String command = cmd.getOptionValue("c");
+		String host = cmd.getOptionValue("h");
 
-		if(password == null || password.trim().isEmpty()){
-
-			if(System.console() != null){
-				char[] pwd = System.console().readPassword("Password: ");
-				password = new String(pwd);
-			}else{
-				System.out.print("Password: ");
-				Scanner input = new Scanner(System.in);
-				password = input.next();
-			}
+		password = inputIfNeeded(password, "Password: ", true);
+		
+		List<String> hosts = new ArrayList<String>();
+		
+		if(host != null && !host.trim().isEmpty()){
+			hosts.add(host.trim());
+		}else{
+			hosts = loadIPAddressFromFile(file);
 		}
 		
-		List<String> hosts = loadIPAddressFromFile(file);
-
+		if(hosts.isEmpty()){
+			System.out.println("must specifiy host by -h or -f parameter");
+			System.exit(-3);
+		}
+		
+		command = inputIfNeeded(command, "Command: ", false);
+		
 		try {
 			JSch jsch = new JSch();
 			java.util.Properties config = new java.util.Properties(); 
 			config.put("StrictHostKeyChecking", "no");
 			
-			for (String host : hosts) {
-				Session session = jsch.getSession(username, host, 22);
+			for (String currentHost : hosts) {
+				Session session = jsch.getSession(username, currentHost, 22);
 
 				session.setPassword(password);
 				
@@ -100,7 +105,7 @@ public class Main {
 
 				channel.connect();
 
-				System.out.println("======"+host+"======");
+				System.out.println("["+currentHost+"]---------------------------------------------------------------");
 				byte[] tmp = new byte[1024];
 				while (true) {
 					while (in.available() > 0) {
@@ -126,10 +131,30 @@ public class Main {
 			System.out.println(e);
 		}
 	}
+
+	private static String inputIfNeeded(String parameter, String prompt, boolean isPassword) {
+		if (parameter == null || parameter.trim().isEmpty()) {
+			if (isPassword && System.console() != null) {
+				char[] pwd = System.console().readPassword(prompt);
+				parameter = new String(pwd);
+			} else {
+				System.out.print(prompt);
+				try (Scanner input = new Scanner(System.in)) {
+					parameter = input.nextLine();
+				}
+			}
+		}
+		
+		if (parameter.trim().isEmpty()) {
+			return inputIfNeeded(parameter, prompt, isPassword);
+		}
+		
+		return parameter.trim();
+	}
 	
 	private static void printHelp(Options options) {
 		HelpFormatter formatter = new HelpFormatter();
-		formatter.printHelp("java -jar GoSSH.jar -f -u [-p] -help", options );
+		formatter.printHelp("java -jar GoSSH.jar options", options );
 	}
 
 	public static List<String> loadIPAddressFromFile(String ipFile){
