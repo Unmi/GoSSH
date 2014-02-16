@@ -35,6 +35,21 @@ Execute command
 
 We can rename GoSSH-0.0.1-jar-with-dependencies.jar to GoSSH.jar
 
+With the configuration of pom.xml, if we execute
+
+> mvn package
+
+We'll get
+
+1. GoSSH-x.x.x-with-dependencies.jar
+2. GoSSH-x.x.x.jar
+3. lib folder
+
+We have two ways to distribute our artifact
+
+1. single file GoSSH-x.x.x-with-dependencies.jar
+2. group of GoSSH-x.x.x.jar and lib folder, I prefer this one.
+
 ###Dependencies
 
 1. [JSch](http://www.jcraft.com/jsch/)  
