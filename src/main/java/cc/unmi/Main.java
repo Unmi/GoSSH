@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
@@ -26,62 +27,70 @@ import com.jcraft.jsch.Session;
 public class Main {
 
 	public static void main(String[] args) {
-		
+
 		Options options = new Options();
-		options.addOption(Option.builder("f").longOpt("file").hasArg().desc("IP Address list file").build());
-		options.addOption(Option.builder("u").longOpt("username").hasArg().required().desc("Username").build());
-		options.addOption(Option.builder("p").longOpt("password").hasArg().desc("Password").build());
-		options.addOption(Option.builder("c").longOpt("command").hasArg().desc("Command").build());
-		options.addOption(Option.builder("h").longOpt("host").hasArg().desc("Host").build());
-		options.addOption(Option.builder("help").desc("Print this help").build());
+		options.addOption(Option.builder("help").desc("Print this help information").build());
+		options.addOption(Option.builder("f").longOpt("file").hasArg().argName("file").desc("Host(name or IP) list file, one host per line").build());
+		options.addOption(Option.builder("h").longOpt("host").hasArg().argName("string").desc("Host name or IP address").build());
+		options.addOption(Option.builder("u").longOpt("username").hasArg().argName("string").required().desc("Username for login server").build());
+		options.addOption(Option.builder("p").longOpt("password").hasArg().argName("string").desc("Password for login server").build());
+		options.addOption(Option.builder("c").longOpt("command").hasArg().argName("string").desc("Shell command, with quote if contains space").build());
+
 		CommandLineParser parser = new DefaultParser();
-		
+
 		CommandLine cmd = null;
 		try {
-			cmd = parser.parse( options, args);
+			cmd = parser.parse(options, args);
 		} catch (ParseException e1) {
+			System.out.println(e1.getMessage());
 			printHelp(options);
 			System.exit(-1);
 		}
-		
-		if(cmd.hasOption("help")){
+
+		if (cmd.hasOption("help")) {
 			printHelp(options);
 			System.exit(0);
 		}
-		
+
 		String file = cmd.getOptionValue("f");
 		String username = cmd.getOptionValue("u");
 		String password = cmd.getOptionValue("p");
 		String command = cmd.getOptionValue("c");
 		String host = cmd.getOptionValue("h");
 
-		password = inputIfNeeded(password, "Password: ", true);
+		if(file == null || file.isEmpty()){
+			if(host == null || host.isEmpty()){
+				System.out.println("Missing required option: f or h");
+				printHelp(options);
+				System.exit(-3);
+			}
+		}
 		
 		List<String> hosts = new ArrayList<String>();
-		
-		if(host != null && !host.trim().isEmpty()){
+		if (host != null && !host.trim().isEmpty()) {
 			hosts.add(host.trim());
-		}else{
+		} else {
 			hosts = loadIPAddressFromFile(file);
 		}
 		
-		if(hosts.isEmpty()){
+		password = inputIfNeeded(password, "Password: ", true);
+
+		if (hosts.isEmpty()) {
 			System.out.println("must specifiy host by -h or -f parameter");
 			System.exit(-3);
 		}
-		
+
 		command = inputIfNeeded(command, "Command: ", false);
-		
+
 		try {
 			JSch jsch = new JSch();
-			java.util.Properties config = new java.util.Properties(); 
+			java.util.Properties config = new java.util.Properties();
 			config.put("StrictHostKeyChecking", "no");
-			
+
 			for (String currentHost : hosts) {
 				Session session = jsch.getSession(username, currentHost, 22);
-
-				session.setPassword(password);
 				
+				session.setPassword(password);
 				session.setConfig(config);
 				
 				session.connect();
@@ -105,7 +114,7 @@ public class Main {
 
 				channel.connect();
 
-				System.out.println("["+currentHost+"]---------------------------------------------------------------");
+				System.out.println("[" + currentHost + "]---------------------------------------------------------------");
 				byte[] tmp = new byte[1024];
 				while (true) {
 					while (in.available() > 0) {
@@ -126,8 +135,7 @@ public class Main {
 				channel.disconnect();
 				session.disconnect();
 			}
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			System.out.println(e);
 		}
 	}
@@ -144,39 +152,45 @@ public class Main {
 				}
 			}
 		}
-		
+
 		if (parameter.trim().isEmpty()) {
 			return inputIfNeeded(parameter, prompt, isPassword);
 		}
-		
+
 		return parameter.trim();
 	}
-	
+
 	private static void printHelp(Options options) {
 		HelpFormatter formatter = new HelpFormatter();
-		formatter.printHelp("java -jar GoSSH.jar options", options );
+		formatter.setOptionComparator(new Comparator<Option>() {
+			@Override
+			public int compare(Option o1, Option o2) {
+				return 0;
+			}
+		});
+		formatter.printHelp("java -jar GoSSH-x.x.x.jar options", options);
 	}
 
-	public static List<String> loadIPAddressFromFile(String ipFile){
+	public static List<String> loadIPAddressFromFile(String ipFile) {
 		File file = new File(ipFile);
 		List<String> ips = new ArrayList<String>();
 		BufferedReader br = null;
 		try {
 			br = new BufferedReader(new FileReader(file));
 			String line = null;
-			while((line=br.readLine()) != null){
-				if(!line.trim().isEmpty()){
+			while ((line = br.readLine()) != null) {
+				if (!line.trim().isEmpty()) {
 					ips.add(line.trim());
 				}
 			}
 		} catch (FileNotFoundException e) {
-			System.out.println(ipFile + " does not exist");
+			System.out.println("File " + ipFile + " does not exist");
 			System.exit(-1);
-		} catch (IOException e){
-			System.out.println("read " + ipFile + " error.");
+		} catch (IOException e) {
+			System.out.println("read file " + ipFile + " error.");
 			System.exit(-2);
-		} finally{
-			if(br != null){
+		} finally {
+			if (br != null) {
 				try {
 					br.close();
 				} catch (IOException e) {

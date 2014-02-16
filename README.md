@@ -9,7 +9,7 @@ Build it by JDK7 or later version.
 
 ###Instruction
     
-Usage: java -jar GoSSH.jar options  
+Usage: java -jar GoSSH-x.x.x.jar options  
  -c,--command <arg>    Command  
  -f,--file <arg>       IP Address list file  
  -h,--host <arg>       Host  
