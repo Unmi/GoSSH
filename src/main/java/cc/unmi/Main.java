@@ -1,9 +1,5 @@
 package cc.unmi;
 
-import java.awt.Container;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -13,12 +9,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextField;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -32,8 +22,6 @@ import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
-import com.jcraft.jsch.UIKeyboardInteractive;
-import com.jcraft.jsch.UserInfo;
 
 public class Main {
 
@@ -44,15 +32,20 @@ public class Main {
 		options.addOption(Option.builder("u").longOpt("username").hasArg().required().desc("Username").build());
 		options.addOption(Option.builder("p").longOpt("password").hasArg().desc("Password").build());
 		options.addOption(Option.builder("c").longOpt("command").hasArg().required().desc("Command").build());
+		options.addOption(Option.builder("help").desc("Print this help").build());
 		CommandLineParser parser = new DefaultParser();
 		
 		CommandLine cmd = null;
 		try {
 			cmd = parser.parse( options, args);
 		} catch (ParseException e1) {
-			HelpFormatter formatter = new HelpFormatter();
-			formatter.printHelp( "gossh", options );
+			printHelp(options);
 			System.exit(-1);
+		}
+		
+		if(cmd.hasOption("help")){
+			printHelp(options);
+			System.exit(0);
 		}
 		
 		String file = cmd.getOptionValue("f");
@@ -82,9 +75,6 @@ public class Main {
 			for (String host : hosts) {
 				Session session = jsch.getSession(username, host, 22);
 
-				// username and password will be given via UserInfo interface.
-//				UserInfo ui = new MyUserInfo();
-//				session.setUserInfo(ui);
 				session.setPassword(password);
 				
 				session.setConfig(config);
@@ -110,6 +100,7 @@ public class Main {
 
 				channel.connect();
 
+				System.out.println("======"+host+"======");
 				byte[] tmp = new byte[1024];
 				while (true) {
 					while (in.available() > 0) {
@@ -119,7 +110,7 @@ public class Main {
 						System.out.print(new String(tmp, 0, i));
 					}
 					if (channel.isClosed()) {
-						System.out.println("exit-status: " + channel.getExitStatus());
+						System.out.println("exit: " + channel.getExitStatus());
 						break;
 					}
 					try {
@@ -136,6 +127,11 @@ public class Main {
 		}
 	}
 	
+	private static void printHelp(Options options) {
+		HelpFormatter formatter = new HelpFormatter();
+		formatter.printHelp("java -jar GoSSH.jar -f -u [-p] -help", options );
+	}
+
 	public static List<String> loadIPAddressFromFile(String ipFile){
 		File file = new File(ipFile);
 		List<String> ips = new ArrayList<String>();
