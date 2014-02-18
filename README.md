@@ -15,6 +15,7 @@ Usage: java -jar GoSSH-x.x.x.jar options
  -h,--host <arg>       Host  
  -help                 Print this help  
  -p,--password <arg>   Password  
+ -m,--multi-thread        Run under multiple thread mode  
  -u,--username <arg>   Username 
  
 ###IP Address File
