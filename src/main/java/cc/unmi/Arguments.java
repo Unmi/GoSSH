@@ -130,7 +130,7 @@ public class Arguments {
 				return 0;
 			}
 		});
-		formatter.printHelp("java -jar GoSSH-x.x.x.jar options\nor\ngossh options", options);
+		formatter.printHelp("gossh options\nor\njava -jar GoSSH-x.x.x.jar options", options);
 	}
 
 	public static List<String> loadIPAddressFromFile(String ipFile) {

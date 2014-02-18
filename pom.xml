@@ -73,6 +73,7 @@
 						<configuration>
 							<tasks>
 								<copy file="src/main/resources/gossh" todir="target/"/>
+								<copy file="src/main/resources/gossh.bat" todir="target/"/>
 							</tasks>
 						</configuration>
 						<goals>
