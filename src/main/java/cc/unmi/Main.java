@@ -1,23 +1,15 @@
 package cc.unmi;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Scanner;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.commons.io.IOUtils;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -27,177 +19,99 @@ import com.jcraft.jsch.Session;
 public class Main {
 
 	public static void main(String[] args) {
+		final Arguments arguments = Arguments.processArguments(args);
 
-		Options options = new Options();
-		options.addOption(Option.builder("help").desc("Print this help information").build());
-		options.addOption(Option.builder("f").longOpt("file").hasArg().argName("file").desc("Host(name or IP) list file, one host per line").build());
-		options.addOption(Option.builder("h").longOpt("host").hasArg().argName("string").desc("Host name or IP address").build());
-		options.addOption(Option.builder("u").longOpt("username").hasArg().argName("string").required().desc("Username for login server").build());
-		options.addOption(Option.builder("p").longOpt("password").hasArg().argName("string").desc("Password for login server").build());
-		options.addOption(Option.builder("c").longOpt("command").hasArg().argName("string").desc("Shell command, with quote if contains space").build());
+		if(arguments.multipleThreadMode){
+			executeInMultipleThreadMode(arguments);
+		}else{
+			executeInSingleThreadMode(arguments);
+		}
+	}
 
-		CommandLineParser parser = new DefaultParser();
+	private static void executeInMultipleThreadMode(final Arguments arguments) {
+		ExecutorService threadPool = Executors.newFixedThreadPool(5);
+		List<Callable<String>> callables = new ArrayList<Callable<String>>();
 
-		CommandLine cmd = null;
+		for (final String currentHost : arguments.hosts) {
+			callables.add(new Callable<String>() {
+				public String call() throws Exception {
+					return executeCommand(currentHost, arguments.username, arguments.password, arguments.command);
+				}
+			});
+		}
+
+		List<Future<String>> futures;
 		try {
-			cmd = parser.parse(options, args);
-		} catch (ParseException e1) {
-			System.out.println(e1.getMessage());
-			printHelp(options);
-			System.exit(-1);
-		}
-
-		if (cmd.hasOption("help")) {
-			printHelp(options);
-			System.exit(0);
-		}
-
-		String file = cmd.getOptionValue("f");
-		String username = cmd.getOptionValue("u");
-		String password = cmd.getOptionValue("p");
-		String command = cmd.getOptionValue("c");
-		String host = cmd.getOptionValue("h");
-
-		if(file == null || file.isEmpty()){
-			if(host == null || host.isEmpty()){
-				System.out.println("Missing required option: f or h");
-				printHelp(options);
-				System.exit(-3);
+			futures = threadPool.invokeAll(callables);
+			for (Future<String> future : futures) {
+//				System.out.println(future.get());
+				future.get();
 			}
-		}
-		
-		List<String> hosts = new ArrayList<String>();
-		if (host != null && !host.trim().isEmpty()) {
-			hosts.add(host.trim());
-		} else {
-			hosts = loadIPAddressFromFile(file);
-		}
-		
-		password = inputIfNeeded(password, "Password: ", true);
-
-		if (hosts.isEmpty()) {
-			System.out.println("must specifiy host by -h or -f parameter");
+		} catch (InterruptedException | ExecutionException e) {
+			System.err.println(e.getMessage());
 			System.exit(-3);
 		}
 
-		command = inputIfNeeded(command, "Command: ", false);
+		threadPool.shutdown();
+	}
+	
+	//think about newSingleThreadExecutor
+	private static void executeInSingleThreadMode(final Arguments arguments) {
 
+		for (final String currentHost : arguments.hosts) {
+			System.out.println(executeCommand(currentHost, arguments.username, arguments.password, arguments.command));
+		}
+	}
+	
+	private static String executeCommand(String currentHost, String username, String password, String command){
+		String output = "\n[" + currentHost + "]---------------------------------------------------------------\n";
 		try {
 			JSch jsch = new JSch();
 			java.util.Properties config = new java.util.Properties();
 			config.put("StrictHostKeyChecking", "no");
 
-			for (String currentHost : hosts) {
-				Session session = jsch.getSession(username, currentHost, 22);
-				
-				session.setPassword(password);
-				session.setConfig(config);
-				
-				session.connect();
+			Session session = jsch.getSession(username, currentHost, 22);
 
-				Channel channel = session.openChannel("exec");
-				((ChannelExec) channel).setCommand(command);
+			session.setPassword(password);
+			session.setConfig(config);
 
-				// X Forwarding
-				// channel.setXForwarding(true);
+			session.connect();
 
-				// channel.setInputStream(System.in);
-				channel.setInputStream(null);
+			Channel channel = session.openChannel("exec");
+			((ChannelExec) channel).setCommand(command);
 
-				// channel.setOutputStream(System.out);
+			// X Forwarding
+			// channel.setXForwarding(true);
 
-				// FileOutputStream fos=new FileOutputStream("/tmp/stderr");
-				// ((ChannelExec)channel).setErrStream(fos);
-				((ChannelExec) channel).setErrStream(System.err);
+			// channel.setInputStream(System.in);
+			channel.setInputStream(null);
 
-				InputStream in = channel.getInputStream();
+			// channel.setOutputStream(System.out);
 
-				channel.connect();
+			// FileOutputStream fos=new
+			// FileOutputStream("/tmp/stderr");
+			// ((ChannelExec)channel).setErrStream(fos);
+			((ChannelExec) channel).setErrStream(System.err);
 
-				System.out.println("[" + currentHost + "]---------------------------------------------------------------");
-				byte[] tmp = new byte[1024];
-				while (true) {
-					while (in.available() > 0) {
-						int i = in.read(tmp, 0, 1024);
-						if (i < 0)
-							break;
-						System.out.print(new String(tmp, 0, i));
-					}
-					if (channel.isClosed()) {
-						System.out.println("exit: " + channel.getExitStatus());
-						break;
-					}
-					try {
-						Thread.sleep(1000);
-					} catch (Exception ee) {
-					}
-				}
-				channel.disconnect();
-				session.disconnect();
+			InputStream in = channel.getInputStream();
+
+			channel.connect();
+
+			output += "\n" + IOUtils.toString(in);
+			try {
+				Thread.sleep(500);
+			} catch (Exception ee) {
 			}
+			output += "\nexit [" + currentHost + "], status: " + channel.getExitStatus() + "\n";
+
+			channel.disconnect();
+			session.disconnect();
 		} catch (Exception e) {
-			System.out.println(e);
+			output += "\nError: " + e.getMessage();
 		}
+//		return output;
+		System.out.println(output);
+		return "";
 	}
 
-	private static String inputIfNeeded(String parameter, String prompt, boolean isPassword) {
-		if (parameter == null || parameter.trim().isEmpty()) {
-			if (isPassword && System.console() != null) {
-				char[] pwd = System.console().readPassword(prompt);
-				parameter = new String(pwd);
-			} else {
-				System.out.print(prompt);
-				try (Scanner input = new Scanner(System.in)) {
-					parameter = input.nextLine();
-				}
-			}
-		}
-
-		if (parameter.trim().isEmpty()) {
-			return inputIfNeeded(parameter, prompt, isPassword);
-		}
-
-		return parameter.trim();
-	}
-
-	private static void printHelp(Options options) {
-		HelpFormatter formatter = new HelpFormatter();
-		formatter.setOptionComparator(new Comparator<Option>() {
-			@Override
-			public int compare(Option o1, Option o2) {
-				return 0;
-			}
-		});
-		formatter.printHelp("java -jar GoSSH-x.x.x.jar options", options);
-	}
-
-	public static List<String> loadIPAddressFromFile(String ipFile) {
-		File file = new File(ipFile);
-		List<String> ips = new ArrayList<String>();
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(file));
-			String line = null;
-			while ((line = br.readLine()) != null) {
-				if (!line.trim().isEmpty()) {
-					ips.add(line.trim());
-				}
-			}
-		} catch (FileNotFoundException e) {
-			System.out.println("File " + ipFile + " does not exist");
-			System.exit(-1);
-		} catch (IOException e) {
-			System.out.println("read file " + ipFile + " error.");
-			System.exit(-2);
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		return ips;
-	}
 }
