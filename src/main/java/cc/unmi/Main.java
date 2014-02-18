@@ -40,14 +40,9 @@ public class Main {
 			});
 		}
 
-		List<Future<String>> futures;
 		try {
-			futures = threadPool.invokeAll(callables);
-			for (Future<String> future : futures) {
-//				System.out.println(future.get());
-				future.get();
-			}
-		} catch (InterruptedException | ExecutionException e) {
+			threadPool.invokeAll(callables);
+		} catch (InterruptedException e) {
 			System.err.println(e.getMessage());
 			System.exit(-3);
 		}
