@@ -1,3 +1,5 @@
 .*
 !.gitignore
 target
+build.xml
+maven-build.*
