@@ -1,6 +1,7 @@
 package cc.unmi;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -71,6 +72,11 @@ public class Main {
 			session.connect();
 
 			Channel channel = session.openChannel("exec");
+			
+			if(command.startsWith("sudo")){
+				command = command.replaceFirst("sudo", "sudo -S -p '' ");
+			}
+			
 			((ChannelExec) channel).setCommand(command);
 
 			// X Forwarding
@@ -88,7 +94,13 @@ public class Main {
 
 			InputStream in = channel.getInputStream();
 
+			OutputStream out=channel.getOutputStream();
 			channel.connect();
+			
+			if(command.startsWith("sudo")){
+				out.write((password+"\n").getBytes());
+			    out.flush();
+			}
 
 			output += "\n" + IOUtils.toString(in);
 			try {
