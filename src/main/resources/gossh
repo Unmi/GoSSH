@@ -1,3 +1,3 @@
 #!/bin/sh
 
-java -jar `dirname $0`/GoSSH-0.0.1-jar-with-dependencies.jar $@
+java -XstartOnFirstThread -jar `dirname $0`/GoSSH-0.0.1-jar-with-dependencies.jar $@

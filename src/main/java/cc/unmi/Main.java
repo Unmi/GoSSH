@@ -9,6 +9,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.commons.io.IOUtils;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -19,12 +21,26 @@ public class Main {
 
 	public static void main(String[] args) {
 		final Arguments arguments = Arguments.processArguments(args);
-
-		if(arguments.multipleThreadMode){
-			executeInMultipleThreadMode(arguments);
+		
+		if(arguments.guiMode){
+			startGUI();
 		}else{
-			executeInSingleThreadMode(arguments);
+			if(arguments.multipleThreadMode){
+				executeInMultipleThreadMode(arguments);
+			}else{
+				executeInSingleThreadMode(arguments);
+			}
 		}
+	}
+
+	private static void startGUI() {
+		Display display = new Display ();
+		Shell shell = new Shell(display);
+		shell.open ();
+		while (!shell.isDisposed ()) {
+			if (!display.readAndDispatch ()) display.sleep ();
+		}
+		display.dispose ();
 	}
 
 	private static void executeInMultipleThreadMode(final Arguments arguments) {

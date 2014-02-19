@@ -23,6 +23,7 @@ public class Arguments {
 	public String password;
 	public String command;
 	public boolean multipleThreadMode;
+	public boolean guiMode;
 	
 	public List<String> hosts;
 	public String currentHost;
@@ -34,9 +35,10 @@ public class Arguments {
 	public static Arguments processArguments(String[] args){
 		Options options = new Options();
 		options.addOption(Option.builder("help").desc("Print this help information").build());
+		options.addOption(Option.builder("gui").desc("Open Graphic User Interface").build());
 		options.addOption(Option.builder("f").longOpt("file").hasArg().argName("file").desc("Host(name or IP) list file, one host per line").build());
 		options.addOption(Option.builder("h").longOpt("host").hasArg().argName("string").desc("Host name or IP address").build());
-		options.addOption(Option.builder("u").longOpt("username").hasArg().argName("string").required().desc("Username for login server").build());
+		options.addOption(Option.builder("u").longOpt("username").hasArg().argName("string").desc("Username for login server").build());
 		options.addOption(Option.builder("p").longOpt("password").hasArg().argName("string").desc("Password for login server").build());
 		options.addOption(Option.builder("m").longOpt("multi-thread").desc("Run under multiple thread mode").build());
 		options.addOption(Option.builder("c").longOpt("command").hasArg().argName("string").desc("Shell command, with quote if contains space").build());
@@ -55,6 +57,13 @@ public class Arguments {
 		if (cmd.hasOption("help")) {
 			printHelp(options);
 			System.exit(0);
+		}
+		
+		Arguments arguments = new Arguments();
+		
+		if(cmd.hasOption("gui")){
+			arguments.guiMode = true;
+			return arguments;
 		}
 		
 		String file = cmd.getOptionValue("f");
@@ -80,6 +89,8 @@ public class Arguments {
 			hosts = loadIPAddressFromFile(file);
 		}
 		
+		username = inputIfNeeded(username, "Username", false);
+		
 		password = inputIfNeeded(password, "Password: ", true);
 
 		if (hosts.isEmpty()) {
@@ -90,7 +101,6 @@ public class Arguments {
 		command = inputIfNeeded(command, "Command: ", false);
 		
 		
-		Arguments arguments = new Arguments();
 		arguments.file = file;
 		arguments.hosts = hosts;
 		arguments.username = username;
