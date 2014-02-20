@@ -106,6 +106,7 @@ public class Main {
 			// FileOutputStream fos=new
 			// FileOutputStream("/tmp/stderr");
 			// ((ChannelExec)channel).setErrStream(fos);
+			((ChannelExec) channel).setPty(true);
 			((ChannelExec) channel).setErrStream(System.err);
 
 			InputStream in = channel.getInputStream();

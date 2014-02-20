@@ -61,7 +61,7 @@ public class Arguments {
 		
 		Arguments arguments = new Arguments();
 		
-		if(cmd.hasOption("gui")){
+		if(args.length == 0 || cmd.hasOption("gui")){
 			arguments.guiMode = true;
 			return arguments;
 		}
